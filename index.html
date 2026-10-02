@@ -338,6 +338,9 @@ body:has(#hub:not(.hide)){background-color:#FBFBFB;background-image:linear-gradi
   #result .rL,#result .rR{display:block}
   #result .desc{margin-top:0}
 }
+
+/* 결과 화면 버튼 크게 */
+#result .nav button{padding:17px 36px;font-size:20px;min-width:180px}
 </style>
 </head>
 <body>
@@ -418,7 +421,7 @@ body:has(#hub:not(.hide)){background-color:#FBFBFB;background-image:linear-gradi
   <div class="bars" id="bars"></div></div>
   <div class="rR"><div class="desc" id="desc"></div>
   <p class="buddy" id="buddy"></p>
-  <div class="nav"><button class="ghost" id="retryBtn">다시 하기</button><button id="shareBtn">결과 복사</button></div></div>
+  <div class="nav"><button class="ghost" id="retryBtn">다시 하기</button><button id="shareBtn">결과 저장</button></div></div>
 </section>
 
 </div>
@@ -617,6 +620,7 @@ function finish(){
   
   confetti(RC[top].f);
   window.scrollTo({top:0,behavior:"smooth"});
+  window._pct=pct;window._sorted=sorted;
   window._share=`나는 어떤 사상가? 결과: ${t.name} (${t.type}) ${pct[top]}%\n`+sorted.map(k=>`${T[k].name} ${pct[k]}%`).join(" · ");
 }
 function renderDesc(k){
@@ -646,7 +650,44 @@ function confetti(col){
 }
 $("#retryBtn").onclick=()=>{ans.fill(null);cur=0;document.body.style.background="";
   $("#result").classList.add("hide");$("#hub").classList.remove("hide");window.scrollTo(0,0);};
-$("#shareBtn").onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText(window._share).then(()=>{$("#shareBtn").textContent="복사됨";setTimeout(()=>$("#shareBtn").textContent="결과 복사",1500);});};
+/* 결과 저장: 왼쪽 결과 화면(캐릭터·%·사상가 막대)을 PNG로 */
+function _img(src){return new Promise(r=>{const i=new Image();i.onload=()=>r(i);i.onerror=()=>r(null);i.src=src;});}
+function _rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+function _wrap(c,t,maxW){const out=[];let line="";for(const ch of t){if(c.measureText(line+ch).width>maxW&&line){out.push(line);line=ch;}else line+=ch;}if(line)out.push(line);return out;}
+async function saveResultPNG(){
+  const top=window._top,t=T[top],pct=window._pct,sorted=window._sorted;if(!top)return;
+  const F=getComputedStyle(document.body).fontFamily,S=2,W=560;
+  const c0=document.createElement("canvas").getContext("2d");c0.font=`14px ${F}`;
+  const quote=_wrap(c0,`“${t.line}”`,W-90);
+  const heroH=24+130+10+30+44+quote.length*20+66+40+20, barsH=sorted.length*58;
+  const H=18+heroH+14+barsH+18;
+  const cv=document.createElement("canvas");cv.width=W*S;cv.height=H*S;const c=cv.getContext("2d");c.scale(S,S);
+  let g=c.createLinearGradient(0,0,0,H);g.addColorStop(0,"#F9DCE1");g.addColorStop(1,"#F6D0D7");c.fillStyle=g;_rr(c,0,0,W,H,34);c.fill();
+  c.fillStyle="#FCE9EC";_rr(c,18,18,W-36,heroH,24);c.fill();
+  const ink="#5B4B55",ctr=W/2;let y=18+24;
+  const face=await _img(SPR.FACES[top]);if(face){const h=130,w=h*face.width/face.height;c.drawImage(face,ctr-w/2,y,w,h);}y+=140;
+  const pill=(txt,bg,yy,fs)=>{c.font=`800 ${fs}px ${F}`;const tw=c.measureText(txt).width+28;c.fillStyle=bg;_rr(c,ctr-tw/2,yy,tw,fs+14,(fs+14)/2);c.fill();c.fillStyle=ink;c.textAlign="center";c.textBaseline="middle";c.fillText(txt,ctr,yy+(fs+14)/2+1);};
+  pill(t.type,RC[top].f,y,15);y+=40;
+  c.font=`900 30px ${F}`;c.fillStyle=RC[top].d;c.textAlign="center";c.textBaseline="middle";c.fillText(t.name,ctr,y+14);y+=40;
+  c.font=`14px ${F}`;c.fillStyle="#9A8790";quote.forEach(l=>{c.fillText(l,ctr,y+8);y+=20;});y+=6;
+  c.font=`900 52px ${F}`;c.fillStyle=RC[top].d;c.fillText(pct[top]+"%",ctr,y+28);y+=62;
+  pill("나와 가장 가까운 사상가","#F8E39B",y,13);
+  let by=18+heroH+14;
+  for(const k of sorted){
+    const on=k===top;c.fillStyle=on?"#E8C866":"#A9D9C3";_rr(c,18,by+5,W-36,48,22);c.fill();
+    c.fillStyle=on?"#F8E39B":"#D3EEE2";_rr(c,18,by,W-36,48,22);c.fill();
+    const im=await _img(SPR.FACES[k]);if(im){const h=36,w=h*im.width/im.height;c.drawImage(im,42-w/2,by+6,w,h);}
+    const tx=72,tw=W-36-72-70,tyy=by+14;c.fillStyle="#F4F7F5";_rr(c,tx,tyy,tw,20,10);c.fill();
+    if(pct[k]>0){c.fillStyle=RC[k].f;_rr(c,tx,tyy,Math.max(20,tw*pct[k]/100),20,10);c.fill();}
+    c.font=`700 12px ${F}`;c.fillStyle=ink;c.textAlign="left";c.fillText(T[k].name,tx+10,tyy+11);
+    c.font=`900 16px ${F}`;c.textAlign="right";c.fillText(pct[k]+"%",W-36,by+25);
+    by+=58;
+  }
+  cv.toBlob(b=>{const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=`나는 어떤 사상가 - ${t.name}.png`;document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);
+    $("#shareBtn").textContent="저장됨";setTimeout(()=>$("#shareBtn").textContent="결과 저장",1500);},"image/png");
+}
+$("#shareBtn").onclick=saveResultPNG;
 </script>
 </body>
 </html>
